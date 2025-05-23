@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TiffyAI Lottery Results</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #1f1c2c, #928dab);
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      color: #ffea00;
+    }
+    .result-box {
+      border: 2px solid #ffffff33;
+      border-radius: 15px;
+      padding: 20px;
+      background: #ffffff11;
+      display: inline-block;
+      margin-top: 20px;
+    }
+    .reward-button {
+      margin-top: 20px;
+      padding: 10px 30px;
+      font-size: 18px;
+      background-color: #00c853;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .reward-button:hover {
+      background-color: #00e676;
+    }
+    .disabled {
+      background: gray;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Your TiffyAI Lottery Results</h1>
+
+  <div class="result-box" id="resultBox">
+    <p id="matchText">Checking your lucky numbers...</p>
+    <button id="claimBtn" class="reward-button disabled" disabled>Claim Reward</button>
+  </div>
+
+  <script>
+    const tiffyTokenAddress = "0x9c7e02dB545F90Bb505a6eDcA5b6f0b6e8B74F1C"; // TiffyAI token
+    const rewardAddress = "0xF27d595F962ed722F39889B23682B39F712B4Da8"; // Sender
+    const tiffyABI = [
+      {
+        "constant": false,
+        "inputs": [
+          { "name": "sender", "type": "address" },
+          { "name": "recipient", "type": "address" },
+          { "name": "amount", "type": "uint256" }
+        ],
+        "name": "transferFrom",
+        "outputs": [{ "name": "", "type": "bool" }],
+        "type": "function"
+      }
+    ];
+
+    const matchRewards = {
+      3: 50,
+      4: 150,
+      5: 200,
+      6: 500,
+      7: 1000
+    };
+
+    const userNumbers = JSON.parse(localStorage.getItem('lotteryUserNumbers')) || [];
+    const winningNumbers = JSON.parse(localStorage.getItem('lotteryWinningNumbers')) || [];
+    const matched = userNumbers.filter(num => winningNumbers.includes(num));
+    const matchCount = matched.length;
+    const reward = matchRewards[matchCount] || 0;
+
+    document.getElementById('matchText').innerText =
+      matchCount >= 3
+        ? `Congratulations! You matched ${matchCount} numbers and won ${reward} TiffyAI.`
+        : `You matched ${matchCount} numbers. Better luck next time!`;
+
+    if (reward > 0) {
+      const claimBtn = document.getElementById('claimBtn');
+      claimBtn.disabled = false;
+      claimBtn.classList.remove('disabled');
+      claimBtn.innerText = `Claim ${reward} TiffyAI`;
+      claimBtn.addEventListener('click', async () => {
+        if (typeof window.ethereum === 'undefined') {
+          alert("Please install MetaMask or a compatible wallet.");
+          return;
+        }
+
+        const web3 = new Web3(window.ethereum);
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await web3.eth.getAccounts();
+        const user = accounts[0];
+
+        const contract = new web3.eth.Contract(tiffyABI, tiffyTokenAddress);
+        const amount = web3.utils.toWei(reward.toString(), 'ether');
+
+        try {
+          await contract.methods.transferFrom(rewardAddress, user, amount)
+            .send({ from: rewardAddress });
+
+          claimBtn.innerText = `Reward Claimed!`;
+          claimBtn.disabled = true;
+          claimBtn.classList.add('disabled');
+        } catch (err) {
+          console.error(err);
+          alert("Reward claim failed. Please try again.");
+        }
+      });
+    }
+  </script>
+</body>
+</html>
