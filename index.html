@@ -4,125 +4,240 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TiffyAI Lottery Results</title>
-  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
   <style>
-    body {
-      background: linear-gradient(to right, #1f1c2c, #928dab);
-      color: #fff;
-      font-family: Arial, sans-serif;
+    body, html {
+      margin: 0;
+      padding: 0;
+      font-family: 'Orbitron', sans-serif;
+      color: #00f0ff;
+      background: #000;
+      overflow-x: hidden;
+    }
+
+    #background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #1a1a1a, #000);
+      z-index: -1;
+      animation: backgroundAnimation 20s infinite alternate;
+    }
+
+    @keyframes backgroundAnimation {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+
+    #mainContainer {
+      position: relative;
+      max-width: 600px;
+      margin: 5% auto 100px;
+      padding: 30px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      box-shadow: 0 0 30px #00f0ff;
       text-align: center;
-      padding: 40px;
     }
-    h1 {
-      font-size: 2.5rem;
+
+    h1, h2 {
       margin-bottom: 20px;
-      color: #ffea00;
+      text-shadow: 0 0 5px #00f0ff;
     }
-    .result-box {
-      border: 2px solid #ffffff33;
-      border-radius: 15px;
-      padding: 20px;
-      background: #ffffff11;
-      display: inline-block;
-      margin-top: 20px;
+
+    #userNumbers, #drawnNumbers {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
     }
-    .reward-button {
-      margin-top: 20px;
-      padding: 10px 30px;
-      font-size: 18px;
-      background-color: #00c853;
-      color: white;
+
+    .numberBall {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: #00f0ff;
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2em;
+      box-shadow: 0 0 10px #00f0ff;
+      animation: popIn 0.5s ease forwards;
+      opacity: 0;
+    }
+
+    @keyframes popIn {
+      to { opacity: 1; transform: scale(1); }
+      from { opacity: 0; transform: scale(0.5); }
+    }
+
+    #resultMessage {
+      font-size: 1.5em;
+      margin: 20px 0;
+      min-height: 40px;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 1em;
+      background: #00f0ff;
+      color: #000;
       border: none;
       border-radius: 10px;
       cursor: pointer;
-      transition: background 0.3s ease;
+      box-shadow: 0 0 20px #00f0ff;
+      margin: 10px;
     }
-    .reward-button:hover {
-      background-color: #00e676;
+
+    a {
+      color: #00f0ff;
+      text-decoration: underline;
+      margin-top: 10px;
+      display: block;
     }
-    .disabled {
-      background: gray;
-      cursor: not-allowed;
+
+    @media (max-width: 768px) {
+      #mainContainer {
+        margin-bottom: 120px;
+      }
+
+      button {
+        font-size: 1em;
+        padding: 14px 24px;
+      }
     }
   </style>
 </head>
 <body>
-
-  <h1>Your TiffyAI Lottery Results</h1>
-
-  <div class="result-box" id="resultBox">
-    <p id="matchText">Checking your lucky numbers...</p>
-    <button id="claimBtn" class="reward-button disabled" disabled>Claim Reward</button>
+  <div id="background"></div>
+  <div id="mainContainer">
+    <h1>Lottery Results</h1>
+    <div id="userNumbersContainer">
+      <h2>Your Numbers:</h2>
+      <div id="userNumbers"></div>
+    </div>
+    <div id="drawnNumbersContainer">
+      <h2>Drawn Numbers:</h2>
+      <div id="drawnNumbers"></div>
+    </div>
+    <div id="resultMessage"></div>
+    <button id="claim1Tiffy" style="display:none;">Receive 1 TiffyAI</button>
+    <button id="claimWinnings" style="display:none;">Receive Your Winnings</button>
+    <button id="treasureBtn" style="display:none;" onclick="window.open('/treasure', '_blank')">Claim Treasure</button>
+    <a href="/Lottery-numbers">Play Again</a>
   </div>
 
   <script>
-    const tiffyTokenAddress = "0x9c7e02dB545F90Bb505a6eDcA5b6f0b6e8B74F1C"; // TiffyAI token
-    const rewardAddress = "0xF27d595F962ed722F39889B23682B39F712B4Da8"; // Sender
-    const tiffyABI = [
-      {
-        "constant": false,
-        "inputs": [
-          { "name": "sender", "type": "address" },
-          { "name": "recipient", "type": "address" },
-          { "name": "amount", "type": "uint256" }
-        ],
-        "name": "transferFrom",
-        "outputs": [{ "name": "", "type": "bool" }],
-        "type": "function"
-      }
+    const userNumbers = JSON.parse(localStorage.getItem('lotteryPick'))?.numbers;
+    const rewardAddress = "0xF27d595F962ed722F39889B23682B39F712B4Da8";
+    const tiffyAddress = "0xC8Ff19D1Ede2089A63eCdD20C6f7E4a365Be9A72";
+    const ABI = [
+      { "constant": false, "inputs": [ { "name": "sender", "type": "address" }, { "name": "recipient", "type": "address" }, { "name": "amount", "type": "uint256" } ], "name": "transferFrom", "outputs": [ { "name": "", "type": "bool" } ], "type": "function" }
     ];
 
-    const matchRewards = {
-      3: 50,
-      4: 150,
-      5: 200,
-      6: 500,
-      7: 1000
-    };
+    const userContainer = document.getElementById('userNumbers');
+    const drawnContainer = document.getElementById('drawnNumbers');
+    const resultMessage = document.getElementById('resultMessage');
+    const claim1Tiffy = document.getElementById('claim1Tiffy');
+    const claimWinnings = document.getElementById('claimWinnings');
+    const treasureBtn = document.getElementById('treasureBtn');
 
-    const userNumbers = JSON.parse(localStorage.getItem('lotteryUserNumbers')) || [];
-    const winningNumbers = JSON.parse(localStorage.getItem('lotteryWinningNumbers')) || [];
-    const matched = userNumbers.filter(num => winningNumbers.includes(num));
-    const matchCount = matched.length;
-    const reward = matchRewards[matchCount] || 0;
-
-    document.getElementById('matchText').innerText =
-      matchCount >= 3
-        ? `Congratulations! You matched ${matchCount} numbers and won ${reward} TiffyAI.`
-        : `You matched ${matchCount} numbers. Better luck next time!`;
-
-    if (reward > 0) {
-      const claimBtn = document.getElementById('claimBtn');
-      claimBtn.disabled = false;
-      claimBtn.classList.remove('disabled');
-      claimBtn.innerText = `Claim ${reward} TiffyAI`;
-      claimBtn.addEventListener('click', async () => {
-        if (typeof window.ethereum === 'undefined') {
-          alert("Please install MetaMask or a compatible wallet.");
-          return;
-        }
-
-        const web3 = new Web3(window.ethereum);
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const accounts = await web3.eth.getAccounts();
-        const user = accounts[0];
-
-        const contract = new web3.eth.Contract(tiffyABI, tiffyTokenAddress);
-        const amount = web3.utils.toWei(reward.toString(), 'ether');
-
-        try {
-          await contract.methods.transferFrom(rewardAddress, user, amount)
-            .send({ from: rewardAddress });
-
-          claimBtn.innerText = `Reward Claimed!`;
-          claimBtn.disabled = true;
-          claimBtn.classList.add('disabled');
-        } catch (err) {
-          console.error(err);
-          alert("Reward claim failed. Please try again.");
-        }
+    if (!userNumbers) {
+      resultMessage.textContent = "No ticket found. Please play the lottery first.";
+    } else {
+      userNumbers.forEach(num => {
+        const ball = document.createElement('div');
+        ball.className = 'numberBall';
+        ball.textContent = num;
+        userContainer.appendChild(ball);
       });
+
+      const drawnNumbers = [];
+      while (drawnNumbers.length < 7) {
+        const rand = Math.floor(Math.random() * 49) + 1;
+        if (!drawnNumbers.includes(rand)) {
+          drawnNumbers.push(rand);
+        }
+      }
+
+      drawnNumbers.forEach((num, index) => {
+        setTimeout(() => {
+          const ball = document.createElement('div');
+          ball.className = 'numberBall';
+          ball.textContent = num;
+          drawnContainer.appendChild(ball);
+        }, index * 500);
+      });
+
+      setTimeout(() => {
+        const matches = userNumbers.filter(num => drawnNumbers.includes(num));
+        const winAmount = matches.length >= 3 ? [0, 0, 0, 50, 150, 200, 500, 1000][matches.length] : 0;
+
+        if (!localStorage.getItem('rewardClaimed')) {
+          claim1Tiffy.style.display = 'inline-block';
+        }
+
+        if (matches.length >= 3) {
+          resultMessage.textContent = `You matched ${matches.length} numbers! You won ${winAmount} TiffyAI!`;
+          claimWinnings.style.display = 'inline-block';
+        } else {
+          resultMessage.textContent = "No win this time. Try again!";
+        }
+
+        if (localStorage.getItem('rewardClaimed')) {
+          treasureBtn.style.display = 'inline-block';
+        }
+
+        claim1Tiffy.onclick = async () => {
+          if (typeof window.ethereum !== 'undefined') {
+            const web3 = new Web3(window.ethereum);
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const accounts = await web3.eth.getAccounts();
+            const contract = new web3.eth.Contract(ABI, tiffyAddress);
+
+            try {
+              await contract.methods.transferFrom(rewardAddress, accounts[0], web3.utils.toWei('1', 'ether')).send({ from: accounts[0] });
+              localStorage.setItem('rewardClaimed', 'true');
+              claim1Tiffy.textContent = '1 Tiffy Claimed';
+              claim1Tiffy.disabled = true;
+              treasureBtn.style.display = 'inline-block';
+            } catch (err) {
+              alert("Transaction failed: " + err.message);
+            }
+          } else {
+            alert("Please connect a Web3 wallet like MetaMask.");
+          }
+        };
+
+        claimWinnings.onclick = async () => {
+          if (typeof window.ethereum !== 'undefined' && winAmount > 0) {
+            const web3 = new Web3(window.ethereum);
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const accounts = await web3.eth.getAccounts();
+            const contract = new web3.eth.Contract(ABI, tiffyAddress);
+
+            try {
+              await contract.methods.transferFrom(rewardAddress, accounts[0], web3.utils.toWei(winAmount.toString(), 'ether')).send({ from: accounts[0] });
+              claimWinnings.textContent = 'Winnings Sent';
+              claimWinnings.disabled = true;
+            } catch (err) {
+              alert("Transaction failed: " + err.message);
+            }
+          }
+        };
+      }, 4000);
     }
+
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        window.scrollTo(0, 1);
+      }, 100);
+    });
   </script>
 </body>
 </html>
