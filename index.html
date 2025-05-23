@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TiffyAI Lottery Results</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.8.1/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
   <style>
     body, html {
       margin: 0;
@@ -13,7 +13,7 @@
       font-family: 'Orbitron', sans-serif;
       color: #00f0ff;
       background: #000;
-      overflow: hidden;
+      overflow-x: hidden;
     }
 
     #background {
@@ -35,7 +35,7 @@
     #mainContainer {
       position: relative;
       max-width: 600px;
-      margin: 5% auto;
+      margin: 5% auto 100px;
       padding: 30px;
       background: rgba(255, 255, 255, 0.05);
       border-radius: 20px;
@@ -51,6 +51,7 @@
     #userNumbers, #drawnNumbers {
       display: flex;
       justify-content: center;
+      flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 20px;
     }
@@ -82,7 +83,7 @@
     }
 
     button {
-      padding: 10px 20px;
+      padding: 12px 24px;
       font-size: 1em;
       background: #00f0ff;
       color: #000;
@@ -90,14 +91,25 @@
       border-radius: 10px;
       cursor: pointer;
       box-shadow: 0 0 20px #00f0ff;
-      margin-bottom: 10px;
+      margin: 10px;
     }
 
-    #playAgainLink {
-      display: inline-block;
-      margin-top: 10px;
+    a {
       color: #00f0ff;
       text-decoration: underline;
+      margin-top: 10px;
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      #mainContainer {
+        margin-bottom: 120px; /* Space for MetaMask footer */
+      }
+
+      button {
+        font-size: 1em;
+        padding: 14px 24px;
+      }
     }
   </style>
 </head>
@@ -114,59 +126,43 @@
       <div id="drawnNumbers"></div>
     </div>
     <div id="resultMessage"></div>
-    <button id="claim1Tiffy" style="display: none;">Claim 1 TiffyAI</button>
-    <button id="claimWinnings" style="display: none;">Receive Your Winnings</button>
-    <button id="treasureBtn" style="display: none;" onclick="window.open('/treasure', '_blank')">Claim Treasure</button>
-    <a href="/Lottery-numbers" id="playAgainLink">Play Again</a>
+    <button id="claim1Tiffy" style="display:none;">Receive 1 TiffyAI</button>
+    <button id="claimWinnings" style="display:none;">Receive Your Winnings</button>
+    <button id="treasureBtn" style="display:none;" onclick="window.open('/treasure', '_blank')">Claim Treasure</button>
+    <a href="/Lottery-numbers">Play Again</a>
   </div>
 
   <script>
+    const userNumbers = JSON.parse(localStorage.getItem('lotteryPick'))?.numbers;
     const rewardAddress = "0xF27d595F962ed722F39889B23682B39F712B4Da8";
-    const rewardABI = [
-      "function transfer(address to, uint256 amount) public returns (bool)"
+    const tiffyAddress = "0xC8Ff19D1Ede2089A63eCdD20C6f7E4a365Be9A72";
+    const ABI = [
+      { "constant": false, "inputs": [ { "name": "recipient", "type": "address" }, { "name": "amount", "type": "uint256" } ], "name": "transferFrom", "outputs": [ { "name": "", "type": "bool" } ], "type": "function" }
     ];
 
-    let provider, signer, rewardContract, userAddress;
+    const userContainer = document.getElementById('userNumbers');
+    const drawnContainer = document.getElementById('drawnNumbers');
+    const resultMessage = document.getElementById('resultMessage');
+    const claim1Tiffy = document.getElementById('claim1Tiffy');
+    const claimWinnings = document.getElementById('claimWinnings');
+    const treasureBtn = document.getElementById('treasureBtn');
 
-    async function initWallet() {
-      if (typeof window.ethereum === 'undefined') {
-        alert("Please install MetaMask.");
-        return;
-      }
-      provider = new ethers.BrowserProvider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      signer = await provider.getSigner();
-      userAddress = await signer.getAddress();
-      rewardContract = new ethers.Contract(rewardAddress, rewardABI, signer);
-    }
-
-    document.addEventListener('DOMContentLoaded', async () => {
-      await initWallet();
-
-      const userNumbers = JSON.parse(localStorage.getItem('lotteryPick'))?.numbers;
-      const userNumbersContainer = document.getElementById('userNumbers');
-      const drawnNumbersContainer = document.getElementById('drawnNumbers');
-      const resultMessage = document.getElementById('resultMessage');
-      const claim1Tiffy = document.getElementById('claim1Tiffy');
-      const claimWinnings = document.getElementById('claimWinnings');
-      const treasureBtn = document.getElementById('treasureBtn');
-
-      if (!userNumbers) {
-        resultMessage.textContent = "No ticket found. Please play the lottery first.";
-        return;
-      }
-
+    if (!userNumbers) {
+      resultMessage.textContent = "No ticket found. Please play the lottery first.";
+    } else {
       userNumbers.forEach(num => {
         const ball = document.createElement('div');
         ball.className = 'numberBall';
         ball.textContent = num;
-        userNumbersContainer.appendChild(ball);
+        userContainer.appendChild(ball);
       });
 
       const drawnNumbers = [];
       while (drawnNumbers.length < 7) {
         const rand = Math.floor(Math.random() * 49) + 1;
-        if (!drawnNumbers.includes(rand)) drawnNumbers.push(rand);
+        if (!drawnNumbers.includes(rand)) {
+          drawnNumbers.push(rand);
+        }
       }
 
       drawnNumbers.forEach((num, index) => {
@@ -174,55 +170,74 @@
           const ball = document.createElement('div');
           ball.className = 'numberBall';
           ball.textContent = num;
-          drawnNumbersContainer.appendChild(ball);
+          drawnContainer.appendChild(ball);
         }, index * 500);
       });
 
-      setTimeout(async () => {
+      setTimeout(() => {
         const matches = userNumbers.filter(num => drawnNumbers.includes(num));
-        const rewardTiffy = [0, 0, 0, 50, 150, 200, 500, 1000][matches.length] || 0;
+        const winAmount = matches.length >= 3 ? [0, 0, 0, 50, 150, 200, 500, 1000][matches.length] : 0;
 
-        resultMessage.textContent = matches.length >= 3
-          ? `You matched ${matches.length} numbers.`
-          : "No win this time. Try again!";
+        if (!localStorage.getItem('rewardClaimed')) {
+          claim1Tiffy.style.display = 'inline-block';
+        }
 
-        // Step 1: Claim 1 TiffyAI once
-        if (!localStorage.getItem("lottery1TiffyClaimed")) {
-          claim1Tiffy.style.display = "inline-block";
-          claim1Tiffy.onclick = async () => {
-            try {
-              const tx = await rewardContract.transfer(userAddress, BigInt("1000000000000000000"));
-              await tx.wait();
-              localStorage.setItem("lottery1TiffyClaimed", "true");
-              alert("1 TiffyAI token claimed!");
-              claim1Tiffy.style.display = "none";
-              treasureBtn.style.display = "inline-block";
-            } catch (e) {
-              alert("Error: " + e.message);
-            }
-          };
+        if (matches.length >= 3) {
+          resultMessage.textContent = `You matched ${matches.length}!`;
+          claimWinnings.style.display = 'inline-block';
         } else {
-          treasureBtn.style.display = "inline-block";
+          resultMessage.textContent = "No win this time. Try again!";
         }
 
-        // Step 2: If they won, allow claim of winnings
-        if (rewardTiffy > 0 && !localStorage.getItem("lotteryWinningsClaimed")) {
-          claimWinnings.style.display = "inline-block";
-          claimWinnings.onclick = async () => {
+        if (localStorage.getItem('rewardClaimed')) {
+          treasureBtn.style.display = 'inline-block';
+        }
+
+        claim1Tiffy.onclick = async () => {
+          if (typeof window.ethereum !== 'undefined') {
+            const web3 = new Web3(window.ethereum);
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const accounts = await web3.eth.getAccounts();
+            const contract = new web3.eth.Contract(ABI, tiffyAddress);
+
             try {
-              const amount = BigInt(rewardTiffy) * BigInt("1000000000000000000");
-              const tx = await rewardContract.transfer(userAddress, amount);
-              await tx.wait();
-              localStorage.setItem("lotteryWinningsClaimed", "true");
-              alert(`${rewardTiffy} TiffyAI tokens claimed!`);
-              claimWinnings.style.display = "none";
-            } catch (e) {
-              alert("Error: " + e.message);
+              await contract.methods.transferFrom(rewardAddress, accounts[0], web3.utils.toWei('1', 'ether')).send({ from: accounts[0] });
+              localStorage.setItem('rewardClaimed', 'true');
+              claim1Tiffy.textContent = '1 Tiffy Claimed';
+              claim1Tiffy.disabled = true;
+              treasureBtn.style.display = 'inline-block';
+            } catch (err) {
+              alert("Transaction failed: " + err.message);
             }
-          };
-        }
+          } else {
+            alert("Please connect a Web3 wallet like MetaMask.");
+          }
+        };
 
-      }, drawnNumbers.length * 500 + 500);
+        claimWinnings.onclick = async () => {
+          if (typeof window.ethereum !== 'undefined' && winAmount > 0) {
+            const web3 = new Web3(window.ethereum);
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const accounts = await web3.eth.getAccounts();
+            const contract = new web3.eth.Contract(ABI, tiffyAddress);
+
+            try {
+              await contract.methods.transferFrom(rewardAddress, accounts[0], web3.utils.toWei(winAmount.toString(), 'ether')).send({ from: accounts[0] });
+              claimWinnings.textContent = 'Winnings Sent';
+              claimWinnings.disabled = true;
+            } catch (err) {
+              alert("Transaction failed: " + err.message);
+            }
+          }
+        };
+      }, 4000);
+    }
+
+    // Viewport fix for MetaMask mobile
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        window.scrollTo(0, 1);
+      }, 100);
     });
   </script>
 </body>
