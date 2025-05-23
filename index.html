@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TiffyAI Lottery Results</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap" rel="stylesheet">
+  <style>
+    body, html {
+  margin: 0;
+  padding: 0;
+  font-family: 'Orbitron', sans-serif;
+  color: #00f0ff;
+  background: #000;
+  overflow: hidden;
+}
+
+#background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, #1a1a1a, #000);
+  z-index: -1;
+  animation: backgroundAnimation 20s infinite alternate;
+}
+
+@keyframes backgroundAnimation {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+#mainContainer {
+  position: relative;
+  max-width: 600px;
+  margin: 5% auto;
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  box-shadow: 0 0 30px #00f0ff;
+  text-align: center;
+}
+
+h1, h2 {
+  margin-bottom: 20px;
+  text-shadow: 0 0 5px #00f0ff;
+}
+
+#userNumbers, #drawnNumbers {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.numberBall {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #00f0ff;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2em;
+  box-shadow: 0 0 10px #00f0ff;
+  animation: popIn 0.5s ease forwards;
+  opacity: 0;
+}
+
+@keyframes popIn {
+  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.5); }
+}
+
+#resultMessage {
+  font-size: 1.5em;
+  margin: 20px 0;
+  min-height: 40px;
+}
+
+#claimButton {
+  padding: 10px 20px;
+  font-size: 1em;
+  background: #00f0ff;
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 20px #00f0ff;
+  margin-bottom: 20px;
+}
+
+#playAgainLink {
+  display: inline-block;
+  margin-top: 10px;
+  color: #00f0ff;
+  text-decoration: underline;
+}
+
+  </style>
+</head>
+<body>
+  <div id="background"></div>
+  <div id="mainContainer">
+    <h1>Lottery Results</h1>
+    <div id="userNumbersContainer">
+      <h2>Your Numbers:</h2>
+      <div id="userNumbers"></div>
+    </div>
+    <div id="drawnNumbersContainer">
+      <h2>Drawn Numbers:</h2>
+      <div id="drawnNumbers"></div>
+    </div>
+    <div id="resultMessage"></div>
+    <button id="claimButton" style="display: none;">Claim Reward</button>
+    <a href="/Lottery-numbers" id="playAgainLink">Play Again</a>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+  const userNumbers = JSON.parse(localStorage.getItem('lotteryPick'))?.numbers;
+  const userNumbersContainer = document.getElementById('userNumbers');
+  const drawnNumbersContainer = document.getElementById('drawnNumbers');
+  const resultMessage = document.getElementById('resultMessage');
+  const claimButton = document.getElementById('claimButton');
+
+  if (!userNumbers) {
+    resultMessage.textContent = "No ticket found. Please play the lottery first.";
+    return;
+  }
+
+  // Display user's numbers
+  userNumbers.forEach(num => {
+    const ball = document.createElement('div');
+    ball.className = 'numberBall';
+    ball.textContent = num;
+    userNumbersContainer.appendChild(ball);
+  });
+
+  // Generate drawn numbers
+  const drawnNumbers = [];
+  while (drawnNumbers.length < 7) {
+    const rand = Math.floor(Math.random() * 49) + 1;
+    if (!drawnNumbers.includes(rand)) {
+      drawnNumbers.push(rand);
+    }
+  }
+
+  // Animate drawn numbers
+  drawnNumbers.forEach((num, index) => {
+    setTimeout(() => {
+      const ball = document.createElement('div');
+      ball.className = 'numberBall';
+      ball.textContent = num;
+      drawnNumbersContainer.appendChild(ball);
+    }, index * 500);
+  });
+
+  // Determine result after animation
+  setTimeout(() => {
+    const matches = userNumbers.filter(num => drawnNumbers.includes(num));
+    if (matches.length >= 3) {
+      resultMessage.textContent = `Congratulations! You matched ${matches.length} numbers.`;
+      claimButton.style.display = 'inline-block';
+
+      claimButton.addEventListener('click', () => {
+        // Placeholder for smart contract interaction
+        alert('Reward claimed! (Smart contract interaction goes here)');
+        claimButton.disabled = true;
+        claimButton.textContent = 'Reward Claimed';
+      });
+    } else {
+      resultMessage.textContent = "No win this time. Try again!";
+    }
+  }, drawnNumbers.length * 500 + 500);
+});
+  </script>
+</body>
+</html>
